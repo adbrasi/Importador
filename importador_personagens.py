@@ -37,9 +37,9 @@ class ImportadorDePersonagens:
             }
         }
     
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("tags_rule", "civitai_id", "character_tags", "outfits")
-    OUTPUT_IS_LIST = (False, False, False, True)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("tags_rule", "civitai_id", "character_tags", "outfits", "pixiv_tag")
+    OUTPUT_IS_LIST = (False, False, False, True, False)
     FUNCTION = "importar_personagem"
     CATEGORY = "Arakis/Importadores"
     
@@ -51,10 +51,10 @@ class ImportadorDePersonagens:
         """Carrega a planilha Excel se ainda não foi carregada ou se foi modificada."""
         # Caminho para o arquivo Excel na mesma pasta do código
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        excel_path = os.path.join(current_dir, "characterList.xlsx")
+        excel_path = os.path.join(current_dir, "characterList2.xlsx")
         
         if not os.path.exists(excel_path):
-            raise FileNotFoundError(f"Arquivo characterList.xlsx não encontrado em: {excel_path}")
+            raise FileNotFoundError(f"Arquivo characterList2.xlsx não encontrado em: {excel_path}")
         
         # Verifica se precisa recarregar a planilha
         if self.df is None or self.excel_path != excel_path:
@@ -125,7 +125,7 @@ class ImportadorDePersonagens:
         # Sempre retorna um valor diferente para forçar execução
         return float("nan")
     
-    def importar_personagem(self, seed: int, genero: str, quantidade: int, filter: str = "") -> Tuple[str, str, str, List[str]]:
+    def importar_personagem(self, seed: int, genero: str, quantidade: int, filter: str = "") -> Tuple[str, str, str, List[str], str]:
         """Função principal que executa a lógica do node."""
         try:
             # Define o seed para garantir aleatoriedade verdadeira baseada no valor do seed
@@ -139,7 +139,7 @@ class ImportadorDePersonagens:
             
             # Verifica se há resultados após a filtragem
             if df_filtrado.empty:
-                return ("Nenhum personagem encontrado com os filtros aplicados", "", "", [])
+                return ("Nenhum personagem encontrado com os filtros aplicados", "", "", [], "")
             
             # Seleciona uma linha aleatória
             linha_selecionada = df_filtrado.sample(n=1).iloc[0]
@@ -149,13 +149,14 @@ class ImportadorDePersonagens:
             civitai_id_raw = linha_selecionada.get('CIVITAI ID', '')
             civitai_id = self.processar_civitai_id(civitai_id_raw)
             character_tags = str(linha_selecionada.get('character_tags', ''))
+            pixiv_tag = str(linha_selecionada.get('pixiv_tag', ''))
             
             # Coleta os outfits como lista de strings
             outfits_lista = self.coletar_outfits(linha_selecionada, quantidade)
             
-            return (tags_rule, civitai_id, character_tags, outfits_lista)
+            return (tags_rule, civitai_id, character_tags, outfits_lista, pixiv_tag)
             
         except Exception as e:
             error_msg = f"Erro no ImportadorDePersonagens: {str(e)}"
             print(error_msg)
-            return (error_msg, "", "", [])
+            return (error_msg, "", "", [], "")
