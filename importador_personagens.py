@@ -51,7 +51,7 @@ class ImportadorDePersonagens:
         """Carrega a planilha Excel se ainda não foi carregada ou se foi modificada."""
         # Caminho para o arquivo Excel na mesma pasta do código
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        excel_path = os.path.join(current_dir, "characterList2.xlsx")
+        excel_path = os.path.join(current_dir, "characterList3.xlsx")
         
         if not os.path.exists(excel_path):
             raise FileNotFoundError(f"Arquivo characterList2.xlsx não encontrado em: {excel_path}")
@@ -160,3 +160,4 @@ class ImportadorDePersonagens:
             error_msg = f"Erro no ImportadorDePersonagens: {str(e)}"
             print(error_msg)
             return (error_msg, "", "", [], "")
+
