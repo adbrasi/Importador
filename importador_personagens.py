@@ -87,10 +87,10 @@ class ImportadorDePersonagens:
         """Carrega a planilha Excel se ainda não foi carregada ou se foi modificada."""
         # Caminho para o arquivo Excel na mesma pasta do código
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        excel_path = os.path.join(current_dir, "characterListWithStyle.xlsx")
+        excel_path = os.path.join(current_dir, "characterListWithStyle2.xlsx")
         
         if not os.path.exists(excel_path):
-            raise FileNotFoundError(f"Arquivo characterList2.xlsx não encontrado em: {excel_path}")
+            raise FileNotFoundError(f"Arquivo characterListWithStyle2.xlsx não encontrado em: {excel_path}")
         
         # Verifica se precisa recarregar a planilha
         if self.df is None or self.excel_path != excel_path:
