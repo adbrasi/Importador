@@ -27,7 +27,7 @@ class ImportadorDePersonagens:
         "column5",
     ]
     COLUNA_F_NOMES = [
-        "styleName",
+        "StyleTag",
         "style_name",
         "styleLoraName",
         "style_lora_name",
