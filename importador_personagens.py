@@ -90,22 +90,11 @@ class ImportadorDePersonagens:
         """Carrega a planilha Excel se ainda não foi carregada ou se foi modificada."""
         # Caminho para o arquivo Excel na mesma pasta do código
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        candidate_files = [
-            "nova_lista_formatada.xlsx",
-            "nova_lista_fomatada.xlsx",
-            "characterListWithStyle2.xlsx",
-        ]
-        excel_path = None
-        for candidate in candidate_files:
-            path = os.path.join(current_dir, candidate)
-            if os.path.exists(path):
-                excel_path = path
-                break
+        excel_path = os.path.join(current_dir, "nova_lista_fomatada.xlsx")
 
-        if excel_path is None:
+        if not os.path.exists(excel_path):
             raise FileNotFoundError(
-                "Nenhuma planilha encontrada. Esperado um dos arquivos: "
-                f"{', '.join(candidate_files)} na pasta {current_dir}"
+                f"Arquivo 'nova_lista_fomatada.xlsx' não encontrado na pasta {current_dir}"
             )
         
         # Verifica se precisa recarregar a planilha
@@ -213,18 +202,19 @@ class ImportadorDePersonagens:
         for col in self.outfit_columns:
             if col in linha.index and not pd.isna(linha[col]) and str(linha[col]).strip():
                 outfits_disponiveis.append(str(linha[col]).strip())
-        
+
         # Se não há outfits disponíveis, retorna lista vazia
         if not outfits_disponiveis:
             return []
-        
-        # Se a quantidade solicitada é maior que os outfits disponíveis, repete os outfits
-        outfits_selecionados = []
-        for _ in range(quantidade):
-            outfit_escolhido = random.choice(outfits_disponiveis)
-            outfits_selecionados.append(outfit_escolhido)
-        
-        return outfits_selecionados
+
+        if quantidade <= len(outfits_disponiveis):
+            return random.sample(outfits_disponiveis, quantidade)
+
+        # Quando há menos outfits do que o solicitado, reutiliza alguns para preencher.
+        resultado = outfits_disponiveis.copy()
+        while len(resultado) < quantidade:
+            resultado.append(random.choice(outfits_disponiveis))
+        return resultado[:quantidade]
     
     def filtrar_dataframe(self, df: pd.DataFrame, filtro: str, genero: str) -> pd.DataFrame:
         """Aplica os filtros ao dataframe."""
