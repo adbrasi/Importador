@@ -1,5 +1,6 @@
 import os
 import random
+import re
 from typing import Any, List, Optional, Tuple
 
 import pandas as pd
@@ -80,24 +81,74 @@ class ImportadorDePersonagens:
     CATEGORY = "Arakis/Importadores"
     
     def __init__(self):
-        self.df = None
-        self.excel_path = None
+        self.df: Optional[pd.DataFrame] = None
+        self.excel_path: Optional[str] = None
+        self.character_tag_column: Optional[str] = None
+        self.outfit_columns: List[str] = []
     
     def carregar_planilha(self):
         """Carrega a planilha Excel se ainda não foi carregada ou se foi modificada."""
         # Caminho para o arquivo Excel na mesma pasta do código
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        excel_path = os.path.join(current_dir, "characterListWithStyle2.xlsx")
-        
-        if not os.path.exists(excel_path):
-            raise FileNotFoundError(f"Arquivo characterListWithStyle2.xlsx não encontrado em: {excel_path}")
+        candidate_files = [
+            "nova_lista_formatada.xlsx",
+            "nova_lista_fomatada.xlsx",
+            "characterListWithStyle2.xlsx",
+        ]
+        excel_path = None
+        for candidate in candidate_files:
+            path = os.path.join(current_dir, candidate)
+            if os.path.exists(path):
+                excel_path = path
+                break
+
+        if excel_path is None:
+            raise FileNotFoundError(
+                "Nenhuma planilha encontrada. Esperado um dos arquivos: "
+                f"{', '.join(candidate_files)} na pasta {current_dir}"
+            )
         
         # Verifica se precisa recarregar a planilha
         if self.df is None or self.excel_path != excel_path:
             try:
-                self.df = pd.read_excel(excel_path)
+                df = pd.read_excel(excel_path)
+                # Normaliza colunas para facilitar acesso
+                df.columns = [str(col).strip() for col in df.columns]
+                self.df = df
                 self.excel_path = excel_path
-                print(f"Planilha carregada com sucesso: {len(self.df)} personagens encontrados")
+                # Determina coluna de character tags
+                possible_tag_cols = ["character_tags", "character_tag", "tags_character", "characterTokens"]
+                self.character_tag_column = None
+                for col in self.df.columns:
+                    normalized = col.replace(" ", "").lower()
+                    for candidate in possible_tag_cols:
+                        if normalized == candidate.replace("_", "").lower():
+                            self.character_tag_column = col
+                            break
+                    if self.character_tag_column:
+                        break
+                if self.character_tag_column is None:
+                    # fallback para qualquer coluna que contenha "character" e "tag"
+                    for col in self.df.columns:
+                        lower = col.lower()
+                        if "character" in lower and "tag" in lower:
+                            self.character_tag_column = col
+                            break
+
+                if self.character_tag_column is None:
+                    raise ValueError("Não foi possível localizar a coluna de character tags na planilha.")
+
+                # Captura colunas de outfit dinamicamente
+                self.outfit_columns = [
+                    col for col in self.df.columns if col.lower().startswith("outfit_")
+                ]
+                self.outfit_columns.sort(key=lambda x: int(re.sub(r"[^0-9]", "", x) or 0))
+
+                print(
+                    f"Planilha carregada ({os.path.basename(excel_path)}): "
+                    f"{len(self.df)} personagens, coluna de tags '{self.character_tag_column}', "
+                    f"{len(self.outfit_columns)} colunas de outfit."
+                )
             except Exception as e:
                 raise Exception(f"Erro ao carregar a planilha: {str(e)}")
     
@@ -138,22 +189,28 @@ class ImportadorDePersonagens:
                 return valor_str
 
         if indice_padrao is not None and 0 <= indice_padrao < len(linha):
-            valor = linha.iloc[indice_padrao]
-            if not pd.isna(valor):
-                valor_str = str(valor).strip()
-                if valor_str and valor_str.lower() != "nan":
-                    return valor_str
+            coluna_nome = linha.index[indice_padrao]
+            coluna_normalizada = coluna_nome.replace(" ", "").lower()
+            if (
+                coluna_normalizada in [nome.replace(" ", "").lower() for nome in possiveis_nomes]
+                and not coluna_normalizada.startswith("outfit_")
+            ):
+                valor = linha.iloc[indice_padrao]
+                if not pd.isna(valor):
+                    valor_str = str(valor).strip()
+                    if valor_str and valor_str.lower() != "nan":
+                        return valor_str
 
         return ""
     
     def coletar_outfits(self, linha: pd.Series, quantidade: int) -> List[str]:
         """Coleta os outfits disponíveis da linha e seleciona aleatoriamente a quantidade desejada."""
-        # Colunas de outfit vão de outfit_1 até outfit_17
-        outfit_cols = [f"outfit_{i}" for i in range(1, 18)]
-        
+        if not self.outfit_columns:
+            return []
+
         # Coleta todos os outfits não vazios
         outfits_disponiveis = []
-        for col in outfit_cols:
+        for col in self.outfit_columns:
             if col in linha.index and not pd.isna(linha[col]) and str(linha[col]).strip():
                 outfits_disponiveis.append(str(linha[col]).strip())
         
@@ -181,7 +238,7 @@ class ImportadorDePersonagens:
             df_filtrado = df_filtrado[mask_tags]
         
         # Filtro por gênero (coluna sexo)
-        if genero != "any":
+        if genero != "any" and "sexo" in df_filtrado.columns:
             # Filtra por linhas que correspondem ao gênero selecionado
             mask_genero = df_filtrado['sexo'].astype(str).str.lower() == genero.lower()
             df_filtrado = df_filtrado[mask_genero]
@@ -216,7 +273,8 @@ class ImportadorDePersonagens:
             tags_rule = str(linha_selecionada.get('TAGS RULE', ''))
             civitai_id_raw = linha_selecionada.get('CIVITAI ID', '')
             civitai_id = self.processar_civitai_id(civitai_id_raw)
-            character_tags = str(linha_selecionada.get('character_tags', ''))
+            tags_col = self.character_tag_column or "character_tags"
+            character_tags = str(linha_selecionada.get(tags_col, ''))
             pixiv_tag = str(linha_selecionada.get('pixiv_tag', '')).strip()
             item_e_bruto = self.obter_valor_coluna(
                 linha_selecionada,
